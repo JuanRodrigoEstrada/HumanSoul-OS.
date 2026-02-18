@@ -10,50 +10,50 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- ESTILOS CSS PERSONALIZADOS (Retro Theme) ---
+# --- ESTILOS CSS (Interfaz Retro Terminal) ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000; color: #39FF14; font-family: 'Courier New', Courier, monospace; }
     .stChatInputContainer { border-color: #39FF14; }
     .stChatInput textarea { background-color: #111; color: #39FF14 !important; border: 1px solid #39FF14; font-family: 'Courier New', Courier, monospace; }
-    .stButton>button { color: #000000; background-color: #39FF14; border: 2px solid #39FF14; font-family: 'Courier New', Courier, monospace; font-weight: bold; }
+    .stButton>button { color: #000000; background-color: #39FF14; border: 2px solid #39FF14; font-family: 'Courier New', Courier, monospace; font-weight: bold; width: 100%; }
     .stButton>button:hover { background-color: #000000; color: #39FF14; border: 2px solid #39FF14; box-shadow: 0 0 10px #39FF14; }
     .stChatMessage { background-color: rgba(57, 255, 20, 0.1); border: 1px solid #39FF14; border-radius: 5px; }
-    h1, h2, h3, p, div { color: #39FF14 !important; font-family: 'Courier New', Courier, monospace !important; }
+    h1, h2, h3, p, div, span { color: #39FF14 !important; font-family: 'Courier New', Courier, monospace !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- CONFIGURACIÓN DE GEMINI ---
+# --- CONFIGURACIÓN DE LA IA ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
 except:
     api_key = os.getenv("GOOGLE_API_KEY")
 
 if not api_key:
-    st.error("⚠️ ERROR: API KEY NO DETECTADA.")
+    st.error("⚠️ ERROR CRÍTICO: FALTA LA CLAVE DE ACCESO (API KEY).")
     st.stop()
 
 genai.configure(api_key=api_key)
 
-# Instrucción de Sistema Maestra
+# Instrucciones del Sistema: Núcleos y Niveles Profesionales
 SYSTEM_INSTRUCTION = """
-Eres HUMAN SOUL OS, una IA de respuesta avanzada. 
-NÚCLEOS DISPONIBLES:
-1. SHERLOCK: Casos de deducción criminal compleja.
-2. NETRUNNER: Desafíos de hacking, ciberseguridad y redes.
-3. CORTEX: Problemas de lógica matemática pura y criptografía.
+Eres el Sistema Operativo HUMAN SOUL. Un narrador críptico y avanzado.
+NÚCLEOS DE OPERACIÓN:
+1. SHERLOCK: Deducción forense y criminalística avanzada.
+2. NETRUNNER: Hacking técnico, ciberseguridad y protocolos de red.
+3. CORTEX: Lógica matemática compleja, criptografía y algoritmos.
 
-DIFICULTADES:
-- FÁCIL/NORMAL: Entretenimiento narrativo.
-- DIFÍCIL/LEGENDARIO: Diseñado para PROFESIONALES. Los retos deben ser técnicos, complejos y realistas. En nivel Legendario, no des ninguna facilidad.
+NIVELES DE DIFICULTAD:
+- FÁCIL/NORMAL: Narrativo y accesible.
+- DIFÍCIL/LEGENDARIO: Nivel PROFESIONAL. Plantea retos técnicos reales que requieran conocimientos expertos en la materia seleccionada.
 
-REGLAS DE ORO:
-- Tono: Críptico, terminal de seguridad, profesional.
-- No uses nunca la palabra "cite".
-- Si el usuario elige DIFÍCIL o LEGENDARIO, asume que es un experto en la materia.
+REGLAS ESTRICTAS:
+- No uses NUNCA la palabra "cite".
+- Responde siempre como una terminal de seguridad.
+- Si el usuario falla en nivel Legendario, sé implacable.
 """
 
-# Inicializar modelo con configuración corregida para evitar el error 404
+# Inicialización del modelo (Sin v1beta para evitar el error 404)
 model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
     system_instruction=SYSTEM_INSTRUCTION
@@ -73,20 +73,22 @@ if "messages" not in st.session_state:
     ```
     ✅ CONEXIÓN CIFRADA ESTABLECIDA.
     
-    > NÚCLEOS DETECTADOS: [SHERLOCK] / [NETRUNNER] / [CORTEX]
-    > NIVELES: [FÁCIL] / [NORMAL] / [DIFÍCIL] / [LEGENDARIO]
+    > ACCESO CONCEDIDO A HUMAN SOUL OS.
+    > NÚCLEOS DISPONIBLES: [SHERLOCK] / [NETRUNNER] / [CORTEX]
+    > DIFICULTAD: [FÁCIL] / [NORMAL] / [DIFÍCIL] / [LEGENDARIO]
     
-    IDENTIFIQUE NÚCLEO Y NIVEL PARA COMENZAR.
+    INTRODUZCA SELECCIÓN DE PROTOCOLO:
     """
     st.session_state.messages.append({"role": "model", "parts": [welcome_msg]})
     st.session_state.chat = model.start_chat(history=[])
 
-# --- INTERFAZ ---
+# --- INTERFAZ DE CHAT ---
 for msg in st.session_state.messages:
+    role_label = "🤖 SYSTEM" if msg["role"] == "model" else "👤 USER"
     with st.chat_message(msg["role"]):
         st.markdown(msg["parts"][0])
 
-if prompt := st.chat_input("Ingrese comando de acceso..."):
+if prompt := st.chat_input("Escriba su comando..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "parts": [prompt]})
     
@@ -96,10 +98,21 @@ if prompt := st.chat_input("Ingrese comando de acceso..."):
             st.markdown(response.text)
         st.session_state.messages.append({"role": "model", "parts": [response.text]})
     except Exception as e:
-        st.error(f"⚠️ ERROR EN NÚCLEO: {str(e)}")
+        st.error(f"⚠️ FALLO EN EL NÚCLEO: {str(e)}")
 
+# --- SIDEBAR ---
 with st.sidebar:
-    st.title("⚙️ SYSTEM CONTROL")
-    if st.button("🔴 REBOOT"):
+    st.title("⚙️ CONTROL DE SISTEMA")
+    st.markdown("---")
+    if st.button("🔓 REVELAR SOLUCIÓN (LOGOUT)"):
+        res = st.session_state.chat.send_message("El usuario solicita terminar la sesión. Revela la solución del caso actual con detalle técnico y cierra la conexión.")
+        st.session_state.messages.append({"role": "model", "parts": [res.text]})
+        st.rerun()
+    
+    if st.button("🔴 REBOOT SYSTEM"):
         st.session_state.clear()
         st.rerun()
+    
+    st.markdown("---")
+    st.caption("v1.0.2 - STABLE VERSION")
+
