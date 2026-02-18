@@ -104,7 +104,7 @@ Al iniciar, pide al usuario que seleccione su módulo y nivel de dificultad.
 
 # Inicializar modelo
 model = genai.GenerativeModel(
-    model_name="gemini-pro",
+    model_name="gemini-1.5-pro",
     generation_config=generation_config,
     safety_settings=safety_settings,
     system_instruction=SYSTEM_INSTRUCTION
@@ -192,5 +192,6 @@ if prompt := st.chat_input("Igrese comando..."):
         
     except Exception as e:
         st.error(f"⚠️ ERROR CRÍTICO EN NÚCLEO: {str(e)}")
+
 
 
