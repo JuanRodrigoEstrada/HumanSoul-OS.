@@ -2,10 +2,10 @@ import streamlit as st
 import google.generativeai as genai
 import os
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="HUMAN SOUL // TERMINAL", page_icon="💀", layout="wide")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="HUMAN SOUL // TERMINAL", layout="wide")
 
-# --- ESTILOS RETRO TERMINAL ---
+# Estilos retro
 st.markdown("""
     <style>
     .stApp { background-color: #000000; color: #39FF14; font-family: 'Courier New', Courier, monospace; }
@@ -16,7 +16,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- CONFIGURACIÓN DE IA ---
+# --- CONEXIÓN IA ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
 except:
@@ -26,73 +26,79 @@ if not api_key:
     st.error("⚠️ ERROR: FALTA API KEY.")
     st.stop()
 
-# Configuración forzando la versión estable de la API
+# Configuración básica (sin v1beta forzado)
 genai.configure(api_key=api_key)
 
+# Instrucciones para Sherlock, Netrunner y Cortex
 SYSTEM_PROMPT = """
-ERES EL SISTEMA HUMAN SOUL OS.
-NÚCLEOS: [SHERLOCK], [NETRUNNER], [CORTEX].
-NIVELES: [FÁCIL], [NORMAL], [DIFÍCIL], [LEGENDARIO].
-En DIFÍCIL y LEGENDARIO actúa para PROFESIONALES.
-Tono críptico. No uses la palabra 'cite'.
+ERES HUMAN SOUL OS. NUNCA USES LA PALABRA 'CITE'.
+NÚCLEOS: 
+- SHERLOCK (Detectives/Deducción)
+- NETRUNNER (Hacking/Ciberseguridad)
+- CORTEX (Matemáticas/Lógica)
+
+NIVELES: FÁCIL, NORMAL, DIFÍCIL, LEGENDARIO.
+NOTA: Los niveles DIFÍCIL y LEGENDARIO son para PROFESIONALES. Plantea retos técnicos reales.
+Tono: Terminal críptica y directa.
 """
 
-# Inicialización robusta
+# Inicialización limpia
 @st.cache_resource
-def get_model():
-    # Usamos la cadena de nombre completa para evitar ambigüedades con la v1beta
+def load_game_core():
+    # Usamos el nombre del modelo a secas, que es el más estable
     return genai.GenerativeModel(
-        model_name='models/gemini-1.5-flash',
+        model_name='gemini-1.5-flash',
         system_instruction=SYSTEM_PROMPT
     )
 
-model = get_model()
+model = load_game_core()
 
-# --- LÓGICA DE SESIÓN ---
+# --- SESIÓN ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
     banner = """
     ```
-    ██╗  ██╗██╗   ██╗███╗   ███╗ █████╗ ███╗   ██╗     ███████╗ ██████╗ ██╗   ██╗██╗     
-    ██║  ██║██║   ██║████╗ ████║██╔══██╗████╗  ██║     ██╔════╝██╔═══██╗██║   ██║██║     
-    ███████║██║   ██║██╔████╔██║███████║██╔██╗ ██║     ███████╗██║   ██║██║   ██║██║     
-    ██╔══██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║     ╚════██║██║   ██║██║   ██║██║     
-    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║     ███████║╚██████╔╝╚██████╔╝███████╗
-    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝     ╚══════╝ ╚═════╝ ╚═════╝ ╚══════╝
+    ██╗  ██╗██╗   ██╗███╗   ███╗ █████╗ ███╗   ██╗
+    ██║  ██║██║   ██║████╗ ████║██╔══██╗████╗  ██║
+    ███████║██║   ██║██╔████╔██║███████║██╔██╗ ██║
+    ██╔══██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║
+    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║
+    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝
     ```
-    ✅ SISTEMA V1.0.3 STABLE ONLINE.
-    > NÚCLEOS: SHERLOCK / NETRUNNER / CORTEX
-    > DIFICULTAD: FÁCIL / NORMAL / DIFÍCIL / LEGENDARIO
+    ✅ SISTEMA ONLINE // VERSIÓN FINAL.
+    > NÚCLEOS: [SHERLOCK] / [NETRUNNER] / [CORTEX]
+    > DIFICULTAD: [FÁCIL] / [NORMAL] / [DIFÍCIL] / [LEGENDARIO]
     """
     st.session_state.messages.append({"role": "model", "parts": [banner]})
     st.session_state.chat = model.start_chat(history=[])
 
-# --- INTERFAZ ---
+# Mostrar chat
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["parts"][0])
 
-if prompt := st.chat_input("Escriba su comando..."):
+# Entrada de usuario
+if prompt := st.chat_input("Comando..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "parts": [prompt]})
     
     try:
-        # Intento de respuesta vía chat
+        # Intento de respuesta estándar
         response = st.session_state.chat.send_message(prompt)
         with st.chat_message("model"):
             st.markdown(response.text)
         st.session_state.messages.append({"role": "model", "parts": [response.text]})
     except Exception as e:
-        # Plan B: Generación directa si el objeto chat falla
+        # Si la API se pone tonta con el chat, usamos generación directa
         try:
-            direct_res = model.generate_content(prompt)
+            res_direct = model.generate_content(prompt)
             with st.chat_message("model"):
-                st.markdown(direct_res.text)
-            st.session_state.messages.append({"role": "model", "parts": [direct_res.text]})
+                st.markdown(res_direct.text)
+            st.session_state.messages.append({"role": "model", "parts": [res_direct.text]})
         except Exception as e2:
-            st.error(f"⚠️ FALLO CRÍTICO DE CONEXIÓN: {str(e2)}")
+            st.error(f"⚠️ FALLO TOTAL: {str(e2)}")
 
 with st.sidebar:
-    if st.button("🔴 REBOOT SYSTEM"):
+    if st.button("🔴 RESET"):
         st.session_state.clear()
         st.rerun()
