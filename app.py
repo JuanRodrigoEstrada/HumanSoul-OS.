@@ -1,46 +1,43 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 import os
 
-# --- INICIO DEL SISTEMA ---
-st.set_page_config(page_title="HUMAN SOUL // TERMINAL", page_icon="💀", layout="wide")
+# --- CONFIGURACIÓN DE INTERFAZ ---
+st.set_page_config(page_title="HUMAN SOUL // TERMINAL", layout="wide")
 
 st.markdown("""
     <style>
     .stApp { background-color: #000000; color: #39FF14; font-family: 'Courier New', Courier, monospace; }
-    .stChatMessage { background-color: rgba(57, 255, 20, 0.1); border: 1px solid #39FF14; }
+    .stChatInput textarea { background-color: #111; color: #39FF14 !important; border: 1px solid #39FF14; }
+    .stChatMessage { background-color: rgba(57, 255, 20, 0.1); border: 1px solid #39FF14; margin-bottom: 10px; }
     h1, h2, h3, p, div, span { color: #39FF14 !important; }
+    .stButton>button { background-color: #39FF14; color: black; font-weight: bold; width: 100%; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- CONEXIÓN ---
+# --- CONEXIÓN CON EL NUEVO SDK ---
 api_key = st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
 if not api_key:
-    st.error("⚠️ ERROR: No hay API KEY.")
+    st.error("⚠️ ERROR: FALTA LA API KEY.")
     st.stop()
 
-genai.configure(api_key=api_key)
+# Inicializamos el cliente moderno
+client = genai.Client(api_key=api_key)
+MODEL_ID = "gemini-1.5-flash"
 
-# Instrucción maestra para los 3 núcleos y 4 niveles
-instruction = (
-    "Eres HUMAN SOUL OS. Responde siempre de forma críptica y profesional. "
-    "Núcleos: SHERLOCK, NETRUNNER, CORTEX. Niveles: Fácil, Normal, Difícil, Legendario. "
-    "En niveles Difícil y Legendario, plantea retos técnicos reales para expertos. "
-    "No uses nunca la palabra 'cite'."
-)
+# Instrucciones del sistema para ScanVital / HumanSoul
+SYSTEM_PROMPT = """
+Eres HUMAN SOUL OS. Un sistema experto y críptico.
+NÚCLEOS: [SHERLOCK] (Deducción), [NETRUNNER] (Ciberseguridad), [CORTEX] (Matemáticas/Biología).
+NIVELES: [FÁCIL], [NORMAL], [DIFÍCIL], [LEGENDARIO].
+REGLA DE ORO: En niveles DIFÍCIL y LEGENDARIO, actúa como un sistema para PROFESIONALES.
+No uses nunca la palabra 'cite'. Responde siempre en español.
+"""
 
-# Cargamos el modelo sin prefijos problemáticos
-@st.cache_resource
-def setup_model():
-    return genai.GenerativeModel(model_name="gemini-1.5-flash", system_instruction=instruction)
-
-model = setup_model()
-
-# --- SESIÓN DE JUEGO ---
+# --- LÓGICA DE SESIÓN ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    st.session_state.chat = model.start_chat(history=[])
-    banner = "✅ SISTEMA ONLINE. NÚCLEOS: [SHERLOCK] [NETRUNNER] [CORTEX]. DIFICULTAD: [FÁCIL] [NORMAL] [DIFÍCIL] [LEGENDARIO]."
+    banner = "✅ SISTEMA V1.0.4 STABLE ONLINE. IDENTIFIQUE NÚCLEO Y NIVEL."
     st.session_state.messages.append({"role": "model", "content": banner})
 
 # Mostrar historial
@@ -48,29 +45,32 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Entrada de comandos
+# --- ENTRADA DE COMANDOS ---
 if prompt := st.chat_input("Escriba su comando de acceso..."):
+    # Añadir mensaje del usuario
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
     
     try:
-        # Intento de respuesta normal
-        response = st.session_state.chat.send_message(prompt)
-        content = response.text
-    except Exception:
-        # PLAN DE EMERGENCIA: Generación directa si el historial falla
-        try:
-            res = model.generate_content(prompt)
-            content = res.text
-        except Exception as e:
-            content = f"⚠️ FALLO CRÍTICO EN EL NÚCLEO: {str(e)}"
-    
-    with st.chat_message("model"):
-        st.markdown(content)
-    st.session_state.messages.append({"role": "model", "content": content})
+        # Generación con el nuevo SDK (esto evita el error 404 de la beta)
+        response = client.models.generate_content(
+            model=MODEL_ID,
+            contents=prompt,
+            config={'system_instruction': SYSTEM_PROMPT}
+        )
+        
+        answer = response.text
+        with st.chat_message("model"):
+            st.markdown(answer)
+        st.session_state.messages.append({"role": "model", "content": answer})
+        
+    except Exception as e:
+        error_msg = f"⚠️ FALLO CRÍTICO DE HARDWARE: {str(e)}"
+        st.error(error_msg)
 
 with st.sidebar:
-    if st.button("🔴 REBOOT"):
+    st.title("⚙️ CONTROL")
+    if st.button("🔴 REBOOT SYSTEM"):
         st.session_state.clear()
         st.rerun()
 
