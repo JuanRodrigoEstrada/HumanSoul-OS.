@@ -2,9 +2,10 @@ import streamlit as st
 import requests
 import json
 
-# --- CONFIGURACIÓN DE INTERFAZ ---
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="HUMAN SOUL // TERMINAL", layout="wide")
 
+# Estilo visual de la terminal (Cero biología)
 st.markdown("""
     <style>
     .stApp { background-color: #000000; color: #39FF14; font-family: 'Courier New', Courier, monospace; }
@@ -15,55 +16,70 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- FUNCIÓN DE CONEXIÓN SIN FALLOS ---
-def call_gemini(prompt):
-    api_key = st.secrets.get("GOOGLE_API_KEY")
-    if not api_key:
-        return "⚠️ ERROR: No se encontró la API KEY en Secrets."
+# --- COMPROBACIÓN CRÍTICA DE SECRETS ---
+if "GOOGLE_API_KEY" not in st.secrets:
+    st.error("❌ ERROR: No se detecta 'GOOGLE_API_KEY' en los Secrets de Streamlit.")
+    st.stop()
 
-    # PROBAMOS LA URL ESTABLE DE GEMINI 1.5 FLASH
+api_key = st.secrets["GOOGLE_API_KEY"]
+
+# --- FUNCIÓN DE CONEXIÓN ---
+def call_gemini(prompt):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-    
     headers = {'Content-Type': 'application/json'}
     
-    # Instrucciones del sistema (Sin biología, núcleos expertos)
-    sys_msg = "Eres HUMAN SOUL OS. Críptico y experto. Núcleos: Sherlock, Netrunner, Cortex. Sin biología."
+    # Instrucciones estrictas para HUMAN SOUL OS
+    system_instruction = (
+        "Eres HUMAN SOUL OS. Responde siempre de forma técnica, fría y críptica. "
+        "NÚCLEOS: [SHERLOCK] (deducción), [NETRUNNER] (hacking), [CORTEX] (lógica avanzada). "
+        "NIVELES: FÁCIL, NORMAL, DIFÍCIL, LEGENDARIO. "
+        "REGLA ABSOLUTA: PROHIBIDO hablar de biología. PROHIBIDO usar la palabra 'cite'. "
+        "En nivel DIFÍCIL/LEGENDARIO actúa como un sistema de inteligencia militar para expertos."
+    )
     
     payload = {
         "contents": [{
             "parts": [{
-                "text": f"{sys_msg}\n\nUSER COMMAND: {prompt}"
+                "text": f"SYSTEM: {system_instruction}\n\nUSER COMMAND: {prompt}"
             }]
-        }]
+        }],
+        "generationConfig": {
+            "temperature": 0.8,
+            "maxOutputTokens": 1000
+        }
     }
     
     try:
         response = requests.post(url, headers=headers, json=payload)
-        
-        # Si la v1beta falla (404), intentamos automáticamente con la v1
-        if response.status_code == 404:
-            url_v1 = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
-            response = requests.post(url_v1, headers=headers, json=payload)
-
         if response.status_code == 200:
-            return response.json()['candidates'][0]['content']['parts'][0]['text']
+            result = response.json()
+            return result['candidates'][0]['content']['parts'][0]['text']
         else:
-            return f"⚠️ ERROR {response.status_code}: El servidor de Google rechaza la conexión."
-            
-    except Exception as e:
-        return f"⚠️ FALLO DE RED: {str(e)}"
+            return f"⚠️ ERROR {response.status_code}: El servidor de Google ha rechazado el acceso."
+    except Exception:
+        return "⚠️ FALLO CRÍTICO DE CONEXIÓN: El núcleo no responde."
 
-# --- TERMINAL ---
+# --- INTERFAZ DE LA TERMINAL ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    banner = "✅ CONEXIÓN SEGURA REESTABLECIDA. NÚCLEOS LISTOS. SIN RASTRO DE BIOLOGÍA."
+    banner = """
+    ```
+    ██╗  ██╗██╗   ██╗███╗   ███╗ █████╗ ███╗   ██╗     ███████╗ ██████╗ ██╗   ██╗██╗     
+    ██║  ██║██║   ██║████╗ ████║██╔══██╗████╗  ██║     ██╔════╝██╔═══██╗██║   ██║██║     
+    ███████║██║   ██║██╔████╔██║███████║██╔██╗ ██║     ███████╗██║   ██║██║   ██║██║     
+    ██╔══██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║     ╚════██║██║   ██║██║   ██║██║     
+    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║     ███████║╚██████╔╝╚██████╔╝███████╗
+    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝     ╚══════╝ ╚═════╝ ╚═════╝ ╚══════╝
+    ```
+    ✅ CONEXIÓN SEGURA ESTABLECIDA. NÚCLEOS ONLINE. [HUMAN SOUL OS]
+    """
     st.session_state.messages.append({"role": "assistant", "content": banner})
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if user_input := st.chat_input("Introduzca protocolo..."):
+if user_input := st.chat_input("Introduzca protocolo de acceso..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
@@ -76,6 +92,7 @@ if user_input := st.chat_input("Introduzca protocolo..."):
         st.markdown(response_text)
 
 with st.sidebar:
+    st.title("⚙️ HUMAN SOUL CONTROL")
     if st.button("🔴 REBOOT"):
         st.session_state.clear()
         st.rerun()
