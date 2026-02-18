@@ -3,11 +3,7 @@ import google.generativeai as genai
 import os
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(
-    page_title="HUMAN SOUL // TERMINAL",
-    page_icon="💀",
-    layout="wide"
-)
+st.set_page_config(page_title="HUMAN SOUL // TERMINAL", page_icon="💀", layout="wide")
 
 # --- ESTILOS RETRO TERMINAL ---
 st.markdown("""
@@ -20,7 +16,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- CONFIGURACIÓN IA ---
+# --- CONFIGURACIÓN DE IA ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
 except:
@@ -30,28 +26,27 @@ if not api_key:
     st.error("⚠️ ERROR: FALTA API KEY.")
     st.stop()
 
-# Configuración de la librería
+# Configuración forzando la versión estable de la API
 genai.configure(api_key=api_key)
 
-# INSTRUCCIÓN MAESTRA
 SYSTEM_PROMPT = """
 ERES EL SISTEMA HUMAN SOUL OS.
 NÚCLEOS: [SHERLOCK], [NETRUNNER], [CORTEX].
 NIVELES: [FÁCIL], [NORMAL], [DIFÍCIL], [LEGENDARIO].
-En DIFÍCIL y LEGENDARIO actúa como un sistema para PROFESIONALES.
+En DIFÍCIL y LEGENDARIO actúa para PROFESIONALES.
 Tono críptico. No uses la palabra 'cite'.
 """
 
-# --- INICIALIZACIÓN DEL MODELO ---
-# Usamos un bloque try/except específico para capturar el modelo de forma estable
+# Inicialización robusta
 @st.cache_resource
-def load_model():
+def get_model():
+    # Usamos la cadena de nombre completa para evitar ambigüedades con la v1beta
     return genai.GenerativeModel(
-        model_name='gemini-1.5-flash',
+        model_name='models/gemini-1.5-flash',
         system_instruction=SYSTEM_PROMPT
     )
 
-model = load_model()
+model = get_model()
 
 # --- LÓGICA DE SESIÓN ---
 if "messages" not in st.session_state:
@@ -65,7 +60,7 @@ if "messages" not in st.session_state:
     ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║     ███████║╚██████╔╝╚██████╔╝███████╗
     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝     ╚══════╝ ╚═════╝ ╚═════╝ ╚══════╝
     ```
-    ✅ SISTEMA V1.0.2 STABLE ONLINE.
+    ✅ SISTEMA V1.0.3 STABLE ONLINE.
     > NÚCLEOS: SHERLOCK / NETRUNNER / CORTEX
     > DIFICULTAD: FÁCIL / NORMAL / DIFÍCIL / LEGENDARIO
     """
@@ -82,22 +77,22 @@ if prompt := st.chat_input("Escriba su comando..."):
     st.session_state.messages.append({"role": "user", "parts": [prompt]})
     
     try:
-        # Forzamos la respuesta del chat
+        # Intento de respuesta vía chat
         response = st.session_state.chat.send_message(prompt)
         with st.chat_message("model"):
             st.markdown(response.text)
         st.session_state.messages.append({"role": "model", "parts": [response.text]})
     except Exception as e:
-        # Si falla, intentamos una llamada directa sin historial para desbloquear
+        # Plan B: Generación directa si el objeto chat falla
         try:
-            direct_response = model.generate_content(prompt)
+            direct_res = model.generate_content(prompt)
             with st.chat_message("model"):
-                st.markdown(direct_response.text)
-            st.session_state.messages.append({"role": "model", "parts": [direct_response.text]})
+                st.markdown(direct_res.text)
+            st.session_state.messages.append({"role": "model", "parts": [direct_res.text]})
         except Exception as e2:
-            st.error(f"⚠️ FALLO CRÍTICO: {str(e2)}")
+            st.error(f"⚠️ FALLO CRÍTICO DE CONEXIÓN: {str(e2)}")
 
 with st.sidebar:
-    if st.button("🔴 REBOOT"):
+    if st.button("🔴 REBOOT SYSTEM"):
         st.session_state.clear()
         st.rerun()
