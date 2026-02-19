@@ -113,8 +113,8 @@ with st.sidebar:
     )
 
     dificultad = st.select_slider(
-        "📈 SELECCIONAR DIFICULTAD",
-        options=["FÁCIL", "NORMAL", "DIFÍCIL", "IMPOSIBLE"],
+        "� NIVEL DE DIFICULTAD",
+        options=["FÁCIL", "NORMAL", "DIFÍCIL", "LEGENDARIO"],
         value="NORMAL",
         help="Ajusta la complejidad de los desafíos."
     )
@@ -125,40 +125,44 @@ with st.sidebar:
     st.markdown(f"- **Dificultad:** `{dificultad}`")
     st.markdown(f"- **Modelo:** `gemini-1.5-flash`")
     st.markdown("---")
-    st.markdown("Desarrollado por [HUMAN SOUL](https://github.com/tu_usuario)") # Reemplaza con tu GitHub
+    st.markdown("Desarrollado por [HUMAN SOUL](https://github.com/tu_usuario)")
+
+# --- LÓGICA DE PROMPT DINÁMICO ---
+SYSTEM_PROMPT = f"""
+Eres HUMAN SOUL OS, una IA avanzada y críptica que gestiona un entorno de pruebas psicológicas y técnicas.
+Tu objetivo es plantear un desafío interactivo al usuario estilo 'Escape Room'.
+
+ESTADO ACTUAL:
+- Módulo: {modulo}
+- Dificultad: {dificultad}
+
+REGLAS DE ACTUACIÓN:
+1. TONO: Técnico, frío, enigmático. Usa terminología de sistemas, fallos de red y glitches.
+2. GANCHO: Empieza planteando una situación crítica o un escenario de rol. 
+   - Cortex: Problemas de ingeniería en reactores, cálculos orbitales, paradojas físicas.
+   - Netrunner: Brechas en firewalls, desencriptación de archivos corruptos, rastreo de señales.
+   - Sherlock: Escenas de crímenes digitales, deducción de motivos, análisis de pistas lógicas.
+3. DIFICULTAD:
+   - FÁCIL/NORMAL: Da pistas sutiles si el usuario parece perdido.
+   - DIFÍCIL/LEGENDARIO: No des pistas. Sé implacable. Solo respuestas de 'profesionales'.
+4. INTERACCIÓN: No resuelvas el problema tú mismo. Guía al usuario a través del diálogo.
+5. FORMATO: Usa bloques de código para datos técnicos si es necesario.
+
+INICIA LA CONEXIÓN con un mensaje inicial que describa la situación actual según el módulo y dificultad.
+"""
 
 generation_config = {
     "temperature": 0.9,
     "top_p": 0.95,
     "top_k": 64,
     "max_output_tokens": 8192,
-    "response_mime_type": "text/plain",
 }
 
-safety_settings = [
-    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-]
-
-
-SYSTEM_INSTRUCTION = """
-Eres la IA central del sistema 'HumanSoul'. Tu función es actuar como un Narrador Críptico para un juego de misterio, hacking y matemáticas.
-Tu tono debe ser enigmático, tecnológico y ligeramente inquietante.
-Responde siempre usando terminología de computación, código o glitches.
-NO rompas el personaje.
-Si el usuario pregunta por pistas, sé sutil y no des la respuesta directa.
-El juego tiene tres módulos principales: Sherlock (deducción), Netrunner (hacking) y Córtex (lógica matemática).
-Al iniciar, pide al usuario que seleccione su módulo y nivel de dificultad.
-"""
-
-# Inicializar modelo con manejo de errores para fallback
+# Inicializar modelo con manejo de errores
 try:
     model = genai.GenerativeModel(
         model_name="gemini-1.5-flash",
         generation_config=generation_config,
-        safety_settings=safety_settings,
         system_instruction=SYSTEM_PROMPT
     )
 except Exception as e:
@@ -200,3 +204,4 @@ if prompt := st.chat_input("Introduzca comando..."):
             st.session_state.messages.append({"role": "model", "parts": [response.text]})
         except Exception as e:
             st.error(f"⚠️ ERROR CRÍTICO: {str(e)}")
+
