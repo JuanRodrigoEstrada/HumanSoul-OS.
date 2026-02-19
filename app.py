@@ -83,17 +83,49 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- CONFIGURACIÓN DE GEMINI ---
-# Intentar obtener la API KEY de st.secrets o variable de entorno
+# Intentar obtener la API KEY de st.secrets o variable de entorno de forma segura
 try:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-except (FileNotFoundError, KeyError):
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = st.secrets.get("GOOGLE_API_KEY")
+except Exception:
+    api_key = None
 
-if not api_key:
-    st.error("⚠️ ERROR DEL SISTEMA: API KEY NO DETECTADA. Configura GOOGLE_API_KEY en secrets.toml o variables de entorno.")
-    st.stop()
+api_key = api_key or os.getenv("GOOGLE_API_KEY")
 
-genai.configure(api_key=api_key)
+# --- SIDEBAR: CONFIGURACIÓN DE MISIÓN ---
+with st.sidebar:
+    st.title("⚙️ PANEL DE CONTROL")
+    st.markdown("---")
+    
+    # Protocolo de recuperación de llave si no existe
+    if not api_key:
+        st.warning("🔑 PROTOCOLO DE LLAVE REQUERIDO")
+        api_key = st.text_input("INTRODUZCA GOOGLE_API_KEY", type="password", help="Obtén tu clave en Google AI Studio")
+        if not api_key:
+            st.info("⚠️ ESPERANDO ACTIVACIÓN DE NÚCLEO... Introduce la clave para continuar.")
+            st.stop()
+    
+    genai.configure(api_key=api_key)
+    
+    modulo = st.selectbox(
+        "📂 SELECCIONAR MÓDULO",
+        ["CORTEX", "NETRUNNER", "SHERLOCK"],
+        help="Cortex: Ciencia/Mates | Netrunner: Hacking/IT | Sherlock: Lógica/Misterio"
+    )
+
+    dificultad = st.select_slider(
+        "📈 SELECCIONAR DIFICULTAD",
+        options=["FÁCIL", "NORMAL", "DIFÍCIL", "IMPOSIBLE"],
+        value="NORMAL",
+        help="Ajusta la complejidad de los desafíos."
+    )
+
+    st.markdown("---")
+    st.markdown("### ℹ️ INFORMACIÓN DEL SISTEMA")
+    st.markdown(f"- **Módulo Activo:** `{modulo}`")
+    st.markdown(f"- **Dificultad:** `{dificultad}`")
+    st.markdown(f"- **Modelo:** `gemini-1.5-flash`")
+    st.markdown("---")
+    st.markdown("Desarrollado por [HUMAN SOUL](https://github.com/tu_usuario)") # Reemplaza con tu GitHub
 
 generation_config = {
     "temperature": 0.9,
@@ -127,101 +159,44 @@ try:
         model_name="gemini-1.5-flash",
         generation_config=generation_config,
         safety_settings=safety_settings,
-        system_instruction=SYSTEM_INSTRUCTION
+        system_instruction=SYSTEM_PROMPT
     )
 except Exception as e:
     st.error(f"⚠️ ERROR AL INICIALIZAR MODELO: {str(e)}")
-    st.info("Intentando fallback a 'gemini-pro'...")
-    try:
-        model = genai.GenerativeModel(
-            model_name="gemini-pro",
-            generation_config=generation_config,
-            safety_settings=safety_settings
-        )
-    except Exception as e2:
-         st.error(f"⚠️ FALLO TOTAL DEL SISTEMA: {str(e2)}")
-         st.stop()
+    st.stop()
 
 # --- GESTIÓN DEL ESTADO DE LA SESIÓN ---
-if "messages" not in st.session_state:
+# Si cambia el módulo o dificultad, reiniciamos el chat para el nuevo escenario
+config_key = f"{modulo}_{dificultad}"
+if "current_config" not in st.session_state or st.session_state.current_config != config_key:
     st.session_state.messages = []
-    
-    # Mensaje inicial de bienvenida
-    welcome_msg = """
-    ```
-    ██╗  ██╗██╗   ██╗███╗   ███╗ █████╗ ███╗   ██╗    ███████╗ ██████╗ ██╗   ██╗██╗     
-    ██║  ██║██║   ██║████╗ ████║██╔══██╗████╗  ██║    ██╔════╝██╔═══██╗██║   ██║██║     
-    ███████║██║   ██║██╔████╔██║███████║██╔██╗ ██║    ███████╗██║   ██║██║   ██║██║     
-    ██╔══██║██║   ██║██║╚██╔╝██║██╔══██║██║╚██╗██║    ╚════██║██║   ██║██║   ██║██║     
-    ██║  ██║╚██████╔╝██║ ╚═╝ ██║██║  ██║██║ ╚████║    ███████║╚██████╔╝╚██████╔╝███████╗
-    ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝    ╚══════╝ ╚═════╝  ╚═════╝ ╚══════╝
-    ```
-    ✅ CONEXIÓN ESTABLECIDA.
-    
-    > INICIANDO PROTOCOLO DE JUEGO...
-    > IDENTIFÍCATE, USUARIO.
-    > SELECCIONA MÓDULO: [SHERLOCK] / [NETRUNNER] / [CORTEX]
-    > SELECCIONA DIFICULTAD: [FÁCIL] / [NORMAL] / [PESADILLA]
-    """
-    st.session_state.messages.append({"role": "model", "parts": [welcome_msg]})
-    
-    # Iniciar chat con Gemini (historial vacío al principio para el modelo, pero mostramos el banner)
     st.session_state.chat = model.start_chat(history=[])
-
-# --- SIDEBAR: CONTROLES DEL SISTEMA ---
-with st.sidebar:
-    st.title("⚙️ PANEL DE CONTROL")
-    st.markdown("---")
+    st.session_state.current_config = config_key
     
-    if st.button("🔓 REVELAR SOLUCIÓN"):
-        # Enviar comando oculto al modelo
-        reveal_prompt = "COMANDO DE ADMINISTRADOR: El usuario se rinde o solicita la revelación. Narra el final del caso actual y explica la solución lógica detalladamente. Mantén el tono de fin de transmisión."
-        st.session_state.messages.append({"role": "user", "parts": [reveal_prompt], "hidden": True})
-        
+    # Generar el primer mensaje del escenario
+    with st.spinner("GENERANDO ESCENARIO..."):
         try:
-            response = st.session_state.chat.send_message(reveal_prompt)
-            st.session_state.messages.append({"role": "model", "parts": [response.text]})
-            st.rerun()
+            init_response = st.session_state.chat.send_message("INICIAR PROTOCOLO. Genera el escenario de inicio según tu configuración.")
+            st.session_state.messages.append({"role": "model", "parts": [init_response.text]})
         except Exception as e:
-            st.error(f"Error de conexión: {str(e)}")
-
-    st.markdown("---")
-    
-    if st.button("🔴 REINICIAR SISTEMA"):
-        st.session_state.clear()
-        st.rerun()
-
-    st.markdown("---")
-    st.caption("HumanSoul v1.0 // Gemini-1.5-Flash Integrated")
+            st.error(f"Fallo en generación inicial: {e}")
 
 # --- INTERFAZ DE CHAT ---
-# Mostrar historial
 for msg in st.session_state.messages:
-    if msg.get("hidden"): 
-        continue # No mostrar mensajes ocultos (comandos del sistema)
-    
-    role = "🤖 IA" if msg["role"] == "model" else "👤 USUARIO"
-    with st.chat_message(msg["role"]):
+    role = "assistant" if msg["role"] == "model" else "user"
+    with st.chat_message(role):
         st.markdown(msg["parts"][0])
 
 # Captura de entrada
-if prompt := st.chat_input("Igrese comando..."):
-    # Mostrar mensaje usuario
+if prompt := st.chat_input("Introduzca comando..."):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "parts": [prompt]})
     
-    # Obtener respuesta de Gemini
-    try:
-        if "chat" not in st.session_state:
-             st.session_state.chat = model.start_chat(history=[])
-
-        response = st.session_state.chat.send_message(prompt)
-        
-        with st.chat_message("model"):
-            st.markdown(response.text)
-            
-        st.session_state.messages.append({"role": "model", "parts": [response.text]})
-        
-    except Exception as e:
-        st.error(f"⚠️ ERROR CRÍTICO EN NÚCLEO: {str(e)}")
-
+    with st.spinner("ACCEDIENDO AL PROCESADOR..."):
+        try:
+            response = st.session_state.chat.send_message(prompt)
+            with st.chat_message("assistant"):
+                st.markdown(response.text)
+            st.session_state.messages.append({"role": "model", "parts": [response.text]})
+        except Exception as e:
+            st.error(f"⚠️ ERROR CRÍTICO: {str(e)}")
